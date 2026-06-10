@@ -12,51 +12,17 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router';
-import type { Burst, Session, TypingEvent } from '../lib/types';
-import {
-  createSignalState,
-  processKeystroke,
-  type SignalState,
-} from '../lib/signalProcessor';
-import {
-  addCharToBursts,
-  createBurstBuilderState,
-  getAllBursts,
-  removeLastCharFromBursts,
-  type BurstBuilderState,
-} from '../lib/burstDetector';
 import { BurstRenderer } from './BurstRenderer';
+import { useFoiTheme } from '../hooks/useFoiTheme';
+import { useMobileMode } from '../hooks/useMobileMode';
+import {
+  useWritingSession,
+  type WritingSurfaceResumeState,
+} from '../hooks/useWritingSession';
+import { writingSurfaceContent } from '../content/writingSurfaceContent';
+import { appMetaContent } from '../content/appMetaContent';
 
-/** State passed back from PreviewScreen when user chooses "Keep Writing" */
-export interface WritingSurfaceResumeState {
-  bursts: Burst[];
-  burstBuilderState: BurstBuilderState;
-  events: TypingEvent[];
-  textBuffer: string[];
-  signalState: SignalState;
-  sessionStart: number;
-}
-
-type FoiTheme = 'light' | 'dark';
-
-function getStoredTheme(): FoiTheme {
-  try {
-    const v = localStorage.getItem('foi-theme');
-    if (v === 'dark') return 'dark';
-  } catch { /* ignore */ }
-  return 'light';
-}
-
-function storeTheme(t: FoiTheme) {
-  try { localStorage.setItem('foi-theme', t); } catch { /* ignore */ }
-}
-
-function getIsMobile(): boolean {
-  return (
-    ('ontouchstart' in window) ||
-    window.innerWidth < 640
-  );
-}
+export type { WritingSurfaceResumeState } from '../hooks/useWritingSession';
 
 export function WritingSurface() {
   const navigate = useNavigate();
@@ -64,104 +30,31 @@ export function WritingSurface() {
 
   const resumeState = location.state?.resume as WritingSurfaceResumeState | undefined;
 
-  const [bursts, setBursts] = useState<Burst[]>(resumeState?.bursts ?? []);
-  const [events, setEvents] = useState<TypingEvent[]>(resumeState?.events ?? []);
   const [isMac, setIsMac] = useState(true);
-  const [isMobile, setIsMobile] = useState(false);
-  const [theme, setTheme] = useState<FoiTheme>(getStoredTheme);
-  const [firstCharAnim, setFirstCharAnim] = useState(false);
-
-  const signalStateRef = useRef<SignalState>(resumeState?.signalState ?? createSignalState());
-  const sessionStartRef = useRef<number>(resumeState?.sessionStart ?? 0);
-  const textBufferRef = useRef<string[]>(resumeState?.textBuffer ?? []);
-  const eventsRef = useRef<TypingEvent[]>(resumeState?.events ?? []);
-  const burstBuilderRef = useRef<BurstBuilderState>(
-    resumeState?.burstBuilderState ?? createBurstBuilderState()
-  );
+  const isMobile = useMobileMode();
+  const { theme, isDark, toggleTheme } = useFoiTheme();
+  const {
+    bursts,
+    firstCharAnim,
+    clearFirstCharAnim,
+    startSession,
+    insertChar,
+    deleteChar,
+    deleteWordBackward,
+    createPreviewState,
+    createFallbackPreviewState,
+  } = useWritingSession(resumeState);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-
-  const isDark = theme === 'dark';
 
   useEffect(() => {
     inputRef.current?.focus();
     if (!resumeState) {
-      sessionStartRef.current = performance.now();
+      startSession();
     }
-    document.title = 'Font of Intent';
+    document.title = appMetaContent.title;
     const platform = navigator.platform || navigator.userAgent || '';
     setIsMac(/Mac|iPhone|iPad|iPod/i.test(platform));
-    setIsMobile(getIsMobile());
-
-    const handleResize = () => setIsMobile(getIsMobile());
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
-  const toggleTheme = useCallback(() => {
-    setTheme((prev) => {
-      const next = prev === 'light' ? 'dark' : 'light';
-      storeTheme(next);
-      return next;
-    });
-  }, []);
-
-  const syncBursts = useCallback(() => {
-    setBursts(getAllBursts(burstBuilderRef.current));
-  }, []);
-
-  /** Insert a character into the session */
-  const insertChar = useCallback((char: string) => {
-    const now = performance.now();
-    const t = now - sessionStartRef.current;
-    const signal = processKeystroke(signalStateRef.current, now, false);
-    const pos = textBufferRef.current.length;
-    const event: TypingEvent = {
-      t, type: 'insert', char, pos,
-      iki: signal.iki, burst: signal.burst, pause: signal.pause,
-      confidence: signal.confidence, hesitation: signal.hesitation,
-    };
-    setEvents((prev) => [...prev, event]);
-    textBufferRef.current.push(char);
-    addCharToBursts(
-      burstBuilderRef.current, char,
-      signal.iki, signal.confidence, signal.hesitation, signal.pause
-    );
-    syncBursts();
-    if (textBufferRef.current.length === 1) {
-      setFirstCharAnim(true);
-    }
-  }, [syncBursts]);
-
-  /** Delete one character */
-  const deleteChar = useCallback(() => {
-    if (textBufferRef.current.length === 0) return;
-    const now = performance.now();
-    const t = now - sessionStartRef.current;
-    const signal = processKeystroke(signalStateRef.current, now, true);
-    const pos = textBufferRef.current.length - 1;
-    const event: TypingEvent = {
-      t, type: 'delete', pos,
-      iki: signal.iki, burst: signal.burst, pause: signal.pause,
-      confidence: signal.confidence, hesitation: signal.hesitation,
-    };
-    setEvents((prev) => [...prev, event]);
-    textBufferRef.current.pop();
-    removeLastCharFromBursts(burstBuilderRef.current);
-    syncBursts();
-  }, [syncBursts]);
-
-  /** Delete word backward (iOS swipe-delete) */
-  const deleteWordBackward = useCallback(() => {
-    if (textBufferRef.current.length === 0) return;
-    // Delete trailing spaces first
-    while (textBufferRef.current.length > 0 && textBufferRef.current[textBufferRef.current.length - 1] === ' ') {
-      deleteChar();
-    }
-    // Delete until next space or start
-    while (textBufferRef.current.length > 0 && textBufferRef.current[textBufferRef.current.length - 1] !== ' ') {
-      deleteChar();
-    }
-  }, [deleteChar]);
+  }, [resumeState, startSession]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -205,82 +98,21 @@ export function WritingSurface() {
     [insertChar, deleteChar, deleteWordBackward]
   );
 
-  useEffect(() => {
-    eventsRef.current = events;
-  }, [events]);
-
   const doFinish = useCallback(() => {
     try {
-      const session: Session = {
-        startedAt: sessionStartRef.current,
-        events: eventsRef.current,
-        finalText: textBufferRef.current.join(''),
-      };
-
-      const currentBursts = getAllBursts(burstBuilderRef.current);
-      const copiedBursts = currentBursts.map((b) => ({
-        ...b,
-        chars: [...b.chars],
-        ikis: [...b.ikis],
-      }));
-
-      const bbs = burstBuilderRef.current;
-      const copiedBuilderState: BurstBuilderState = {
-        bursts: bbs.bursts.map((b) => ({
-          ...b,
-          chars: [...b.chars],
-          ikis: [...b.ikis],
-        })),
-        currentBurst: bbs.currentBurst
-          ? {
-              ...bbs.currentBurst,
-              chars: [...bbs.currentBurst.chars],
-              ikis: [...bbs.currentBurst.ikis],
-            }
-          : null,
-      };
-
-      const resume: WritingSurfaceResumeState = {
-        bursts: copiedBursts,
-        burstBuilderState: copiedBuilderState,
-        events: [...eventsRef.current],
-        textBuffer: [...textBufferRef.current],
-        signalState: {
-          ...signalStateRef.current,
-          recentIKIs: [...signalStateRef.current.recentIKIs],
-        },
-        sessionStart: sessionStartRef.current,
-      };
-
-      navigate('/preview', { state: { session, resumeState: resume, theme } });
+      const previewState = createPreviewState();
+      navigate('/preview', { state: { ...previewState, theme } });
     } catch (err) {
       console.error('doFinish error, navigating with minimal state:', err);
-      const fallbackSession: Session = {
-        startedAt: sessionStartRef.current,
-        events: eventsRef.current,
-        finalText: textBufferRef.current.join(''),
-      };
-      const fallbackBursts = getAllBursts(burstBuilderRef.current).map((b) => ({
-        ...b,
-        chars: [...b.chars],
-        ikis: [...b.ikis],
-      }));
+      const previewState = createFallbackPreviewState();
       navigate('/preview', {
         state: {
-          session: fallbackSession,
-          resumeState: {
-            bursts: fallbackBursts,
-            burstBuilderState: createBurstBuilderState(),
-            events: eventsRef.current,
-            textBuffer: [...textBufferRef.current],
-            signalState: createSignalState(),
-            sessionStart: sessionStartRef.current,
-          },
+          ...previewState,
           theme,
         },
       });
     }
-  }, [navigate, theme]);
+  }, [createFallbackPreviewState, createPreviewState, navigate, theme]);
 
   const hasContent = bursts.length > 0;
 
@@ -330,7 +162,7 @@ export function WritingSurface() {
             (e.currentTarget as HTMLElement).style.color = backColor;
           }}
         >
-          back
+          {writingSurfaceContent.backLabel}
         </button>
 
         {/* Right side — toggle · finish (desktop) */}
@@ -353,7 +185,7 @@ export function WritingSurface() {
               onMouseEnter={(e) => { (e.target as HTMLElement).style.color = finishColor; }}
               onMouseLeave={(e) => { (e.target as HTMLElement).style.color = toggleColor; }}
             >
-              {isDark ? 'light' : 'dark'}
+              {isDark ? writingSurfaceContent.theme.light : writingSurfaceContent.theme.dark}
             </button>
 
             {hasContent && (
@@ -382,7 +214,7 @@ export function WritingSurface() {
                     onMouseEnter={(e) => { (e.target as HTMLElement).style.borderBottomColor = finishUnderlineHover; }}
                     onMouseLeave={(e) => { (e.target as HTMLElement).style.borderBottomColor = finishUnderline; }}
                   >
-                    Finish Letter {'\u2192'}
+                    {writingSurfaceContent.finishLabel} {'\u2192'}
                   </span>
                 </button>
               </>
@@ -409,7 +241,7 @@ export function WritingSurface() {
               alignItems: 'center',
             }}
           >
-            {isDark ? 'light' : 'dark'}
+            {isDark ? writingSurfaceContent.theme.light : writingSurfaceContent.theme.dark}
           </button>
         )}
       </div>
@@ -447,7 +279,7 @@ export function WritingSurface() {
                 borderBottom: `1px solid ${finishUnderline}`,
               }}
             >
-              Finish Letter {'\u2192'}
+              {writingSurfaceContent.finishLabel} {'\u2192'}
             </span>
           </button>
         </div>
@@ -480,17 +312,17 @@ export function WritingSurface() {
                   transition: 'color 0.3s ease',
                 }}
               >
-                type naturally{'\n'}your rhythm shapes the typography
+                {writingSurfaceContent.placeholder[0]}{'\n'}{writingSurfaceContent.placeholder[1]}
               </span>
             )}
             {bursts.length === 0 && <br />}
-            <span
-              style={{
-                display: 'inline',
-                animation: firstCharAnim ? 'foiFirstChar 250ms ease-out both' : 'none',
-              }}
-              onAnimationEnd={() => setFirstCharAnim(false)}
-            >
+              <span
+                style={{
+                  display: 'inline',
+                  animation: firstCharAnim ? 'foiFirstChar 250ms ease-out both' : 'none',
+                }}
+                onAnimationEnd={clearFirstCharAnim}
+              >
               <BurstRenderer
                 bursts={bursts}
                 inline
@@ -523,7 +355,7 @@ export function WritingSurface() {
           autoCapitalize="off"
           autoComplete="off"
           spellCheck={false}
-          aria-label="Type your letter here"
+          aria-label={writingSurfaceContent.inputAriaLabel}
         />
       </div>
 
@@ -547,7 +379,7 @@ export function WritingSurface() {
               transition: 'border-color 0.3s ease, color 0.3s ease',
             }}
           >
-            Done
+            {writingSurfaceContent.doneLabel}
           </button>
         ) : (
           /* Desktop: keyboard shortcut hint */
@@ -561,7 +393,8 @@ export function WritingSurface() {
               transition: 'color 0.3s ease',
             }}
           >
-            {isMac ? '\u2318' : 'Ctrl'}+Enter to finish
+            {isMac ? writingSurfaceContent.shortcut.mac : writingSurfaceContent.shortcut.ctrl}
+            {writingSurfaceContent.shortcut.suffix}
           </p>
         )}
       </div>

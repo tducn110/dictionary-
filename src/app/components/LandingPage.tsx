@@ -15,6 +15,7 @@ import {
   type BurstBuilderState,
 } from '../lib/burstDetector';
 import { getBurstStyle, getGhostStyle } from '../lib/fontMapper';
+import { landingPageContent } from '../content/landingPageContent';
 
 interface GhostAnim {
   id: string;
@@ -113,7 +114,7 @@ export function LandingPage() {
   useEffect(() => {
     if (hasMountedRef.current) return;
     hasMountedRef.current = true;
-    document.title = 'Font of Intent';
+    document.title = landingPageContent.title;
 
     const startTimer = setTimeout(() => {
       setDemoPlaying(true);
@@ -145,7 +146,7 @@ export function LandingPage() {
             color: '#2C2824',
           }}
         >
-          font of intent
+          {landingPageContent.wordmark}
         </p>
       </header>
 
@@ -171,9 +172,9 @@ export function LandingPage() {
             marginBottom: '0.5rem',
           }}
         >
-          your words reveal
+          {landingPageContent.headline[0]}
           <br />
-          what your fingers felt
+          {landingPageContent.headline[1]}
         </h1>
 
         {/* Subtitle — explicit line break */}
@@ -187,9 +188,9 @@ export function LandingPage() {
             marginBottom: 0,
           }}
         >
-          a letter that proves you were here.
+          {landingPageContent.subtitle[0]}
           <br />
-          not generated. not autocompleted. yours.
+          {landingPageContent.subtitle[1]}
         </p>
 
         {/* Visual punctuation — structural break */}
@@ -279,7 +280,7 @@ export function LandingPage() {
                   fontSize: '0.9rem',
                 }}
               >
-                watching a letter unfold...
+                {landingPageContent.demoPlaceholder}
               </p>
             )}
           </div>
@@ -310,7 +311,7 @@ export function LandingPage() {
             onMouseEnter={(e) => { (e.target as HTMLElement).style.borderBottomColor = '#2C2824'; }}
             onMouseLeave={(e) => { (e.target as HTMLElement).style.borderBottomColor = '#C4B5A6'; }}
           >
-            Write Your Letter{' '}
+            {landingPageContent.ctaLabel}{' '}
             <span
               className="inline-block"
               style={{
@@ -343,7 +344,7 @@ export function LandingPage() {
             marginBottom: '0.5rem',
           }}
         >
-          the letter only a human could write
+          {landingPageContent.footer}
         </p>
         <p
           style={{
@@ -354,7 +355,7 @@ export function LandingPage() {
             color: '#C4B5A6',
           }}
         >
-          Made with Figma Make
+          {landingPageContent.credit}
         </p>
       </footer>
 

@@ -28,6 +28,7 @@ import {
   type BurstBuilderState,
 } from '../lib/burstDetector';
 import { getBurstStyle, getGhostStyle } from '../lib/fontMapper';
+import { replayViewContent } from '../content/replayViewContent';
 
 type ReplaySpeed = '1x' | '2x' | '4x';
 
@@ -256,7 +257,7 @@ export function ReplayView() {
 
   // Auto-play on shared links (?d=)
   useEffect(() => {
-    document.title = 'Font of Intent';
+    document.title = replayViewContent.title;
 
     if (isSharedLink && !autoStartedRef.current) {
       autoStartedRef.current = true;
@@ -322,7 +323,7 @@ export function ReplayView() {
           className="hover:text-[#F0E8DE] transition-colors cursor-pointer"
           style={{ ...controlStyle }}
         >
-          {location.state?.session ? 'back to letter' : 'back'}
+          {location.state?.session ? replayViewContent.backToLetterLabel : replayViewContent.backLabel}
         </button>
 
         {isSample && (
@@ -335,7 +336,7 @@ export function ReplayView() {
               color: '#3D3630',
             }}
           >
-            sample
+            {replayViewContent.sampleBadge}
           </span>
         )}
       </div>
@@ -358,8 +359,7 @@ export function ReplayView() {
                   maxWidth: '32ch',
                 }}
               >
-                watch the letter unfold, every hesitation and burst of
-                confidence encoded in the weight of each phrase
+                {replayViewContent.intro}
               </p>
               <button
                 onClick={startReplay}
@@ -385,7 +385,7 @@ export function ReplayView() {
                   onMouseEnter={(e) => { (e.target as HTMLElement).style.borderBottomColor = '#E5DCD2'; }}
                   onMouseLeave={(e) => { (e.target as HTMLElement).style.borderBottomColor = '#5C5347'; }}
                 >
-                  Begin Replay {'\u2192'}
+                  {replayViewContent.beginReplayLabel} {'\u2192'}
                 </span>
               </button>
             </div>
@@ -451,7 +451,7 @@ export function ReplayView() {
                       maxWidth: '28ch',
                     }}
                   >
-                    a letter, as it was felt
+                    {replayViewContent.completeMessage}
                   </p>
 
                   <button
@@ -479,7 +479,7 @@ export function ReplayView() {
                       onMouseEnter={(e) => { (e.target as HTMLElement).style.borderBottomColor = '#D4C9BC'; }}
                       onMouseLeave={(e) => { (e.target as HTMLElement).style.borderBottomColor = '#5C5347'; }}
                     >
-                      Write Your Own {'\u2192'}
+                      {replayViewContent.writeYourOwnLabel} {'\u2192'}
                     </span>
                   </button>
                 </div>
@@ -526,7 +526,11 @@ export function ReplayView() {
               className="hover:text-[#B8A99A] transition-colors cursor-pointer"
               style={controlStyle}
             >
-              {isPlaying ? 'pause' : isComplete ? 'replay' : 'play'}
+              {isPlaying
+                ? replayViewContent.controls.pause
+                : isComplete
+                  ? replayViewContent.controls.replay
+                  : replayViewContent.controls.play}
             </button>
 
             <span className="text-[#3D3630] mx-3" style={{ fontSize: '0.65rem' }}>{'\u00b7'}</span>
@@ -536,7 +540,11 @@ export function ReplayView() {
               className="hover:text-[#B8A99A] transition-colors cursor-pointer"
               style={controlStyle}
             >
-              {speed === '1x' ? '1\u00d7' : speed === '2x' ? '2\u00d7' : '4\u00d7'}
+              {speed === '1x'
+                ? replayViewContent.controls.speed1x
+                : speed === '2x'
+                  ? replayViewContent.controls.speed2x
+                  : replayViewContent.controls.speed4x}
             </button>
 
             <span className="text-[#3D3630] mx-3" style={{ fontSize: '0.65rem' }}>{'\u00b7'}</span>
@@ -553,7 +561,7 @@ export function ReplayView() {
               className="hover:text-[#B8A99A] transition-colors cursor-pointer"
               style={controlStyle}
             >
-              restart
+              {replayViewContent.controls.restart}
             </button>
           </div>
         </div>

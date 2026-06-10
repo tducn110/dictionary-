@@ -13,6 +13,7 @@ import type { WritingSurfaceResumeState } from './WritingSurface';
 import { BurstRenderer } from './BurstRenderer';
 import { buildShareUrl } from '../lib/shareUtils';
 import { toast, Toaster } from 'sonner';
+import { previewScreenContent } from '../content/previewScreenContent';
 
 type FoiTheme = 'light' | 'dark';
 
@@ -49,7 +50,7 @@ export function PreviewScreen() {
     if (!shareUrl) return;
     navigator.clipboard.writeText(shareUrl).then(() => {
       setCopied(true);
-      toast.success('Link copied to clipboard');
+      toast.success(previewScreenContent.toast.linkCopied);
       setTimeout(() => setCopied(false), 2000);
     });
   }, [shareUrl]);
@@ -109,7 +110,7 @@ export function PreviewScreen() {
             marginBottom: '2rem',
           }}
         >
-          No letter to preview.
+          {previewScreenContent.empty.message}
         </p>
         <button
           onClick={() => navigate('/write')}
@@ -135,7 +136,7 @@ export function PreviewScreen() {
             onMouseEnter={(e) => { (e.target as HTMLElement).style.borderBottomColor = '#2C2824'; }}
             onMouseLeave={(e) => { (e.target as HTMLElement).style.borderBottomColor = '#C4B5A6'; }}
           >
-            Write a Letter {'\u2192'}
+            {previewScreenContent.empty.ctaLabel} {'\u2192'}
           </span>
         </button>
       </div>
@@ -182,7 +183,7 @@ export function PreviewScreen() {
             whiteSpace: 'nowrap',
           }}
         >
-          Your Letter
+          {previewScreenContent.title}
         </h2>
 
         {/* The frozen artifact — no card, no wrapper, just typography */}
@@ -210,21 +211,30 @@ export function PreviewScreen() {
         {isMobile ? (
           /* Mobile: stacked vertically, larger tap targets */
           <div className="flex flex-col items-start">
-            <MobileActionLink label="Keep Writing" onClick={handleKeepWriting} style={actionStyle} />
-            <MobileActionLink label="Watch Replay" onClick={handleReplay} style={actionStyle} />
-            <MobileActionLink label={copied ? 'Link Copied!' : 'Copy Link'} onClick={copyShareLink} style={actionStyle} />
-            <MobileActionLink label="Write Another" onClick={handleWriteAnother} style={actionStyle} />
+            <MobileActionLink label={previewScreenContent.actions.keepWriting} onClick={handleKeepWriting} style={actionStyle} />
+            <MobileActionLink label={previewScreenContent.actions.watchReplay} onClick={handleReplay} style={actionStyle} />
+            <MobileActionLink
+              label={copied ? previewScreenContent.actions.linkCopiedMobile : previewScreenContent.actions.copyLink}
+              onClick={copyShareLink}
+              style={actionStyle}
+            />
+            <MobileActionLink label={previewScreenContent.actions.writeAnother} onClick={handleWriteAnother} style={actionStyle} />
           </div>
         ) : (
           /* Desktop: inline with middle dots */
           <div className="flex flex-wrap items-center">
-            <ActionLink label="Keep Writing" onClick={handleKeepWriting} style={actionStyle} hoverColor={actionHover} />
+            <ActionLink label={previewScreenContent.actions.keepWriting} onClick={handleKeepWriting} style={actionStyle} hoverColor={actionHover} />
             <Dot color={dotColor} />
-            <ActionLink label="Watch Replay" onClick={handleReplay} style={actionStyle} hoverColor={actionHover} />
+            <ActionLink label={previewScreenContent.actions.watchReplay} onClick={handleReplay} style={actionStyle} hoverColor={actionHover} />
             <Dot color={dotColor} />
-            <ActionLink label={copied ? 'Copied!' : 'Copy Link'} onClick={copyShareLink} style={actionStyle} hoverColor={actionHover} />
+            <ActionLink
+              label={copied ? previewScreenContent.actions.copiedDesktop : previewScreenContent.actions.copyLink}
+              onClick={copyShareLink}
+              style={actionStyle}
+              hoverColor={actionHover}
+            />
             <Dot color={dotColor} />
-            <ActionLink label="Write Another" onClick={handleWriteAnother} style={actionStyle} hoverColor={actionHover} />
+            <ActionLink label={previewScreenContent.actions.writeAnother} onClick={handleWriteAnother} style={actionStyle} hoverColor={actionHover} />
           </div>
         )}
 
@@ -240,7 +250,7 @@ export function PreviewScreen() {
             transition: 'color 0.3s ease',
           }}
         >
-          a letter only you could have written
+          {previewScreenContent.bookend}
         </p>
       </div>
 
