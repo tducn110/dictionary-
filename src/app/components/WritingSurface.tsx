@@ -26,6 +26,7 @@ import {
   type BurstBuilderState,
 } from '../lib/burstDetector';
 import { BurstRenderer } from './BurstRenderer';
+import { useFoiTheme } from '../hooks/useFoiTheme';
 
 /** State passed back from PreviewScreen when user chooses "Keep Writing" */
 export interface WritingSurfaceResumeState {
@@ -35,20 +36,6 @@ export interface WritingSurfaceResumeState {
   textBuffer: string[];
   signalState: SignalState;
   sessionStart: number;
-}
-
-type FoiTheme = 'light' | 'dark';
-
-function getStoredTheme(): FoiTheme {
-  try {
-    const v = localStorage.getItem('foi-theme');
-    if (v === 'dark') return 'dark';
-  } catch { /* ignore */ }
-  return 'light';
-}
-
-function storeTheme(t: FoiTheme) {
-  try { localStorage.setItem('foi-theme', t); } catch { /* ignore */ }
 }
 
 function getIsMobile(): boolean {
@@ -68,7 +55,7 @@ export function WritingSurface() {
   const [events, setEvents] = useState<TypingEvent[]>(resumeState?.events ?? []);
   const [isMac, setIsMac] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
-  const [theme, setTheme] = useState<FoiTheme>(getStoredTheme);
+  const { theme, isDark, toggleTheme } = useFoiTheme();
   const [firstCharAnim, setFirstCharAnim] = useState(false);
 
   const signalStateRef = useRef<SignalState>(resumeState?.signalState ?? createSignalState());
@@ -79,8 +66,6 @@ export function WritingSurface() {
     resumeState?.burstBuilderState ?? createBurstBuilderState()
   );
   const inputRef = useRef<HTMLTextAreaElement>(null);
-
-  const isDark = theme === 'dark';
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -95,14 +80,6 @@ export function WritingSurface() {
     const handleResize = () => setIsMobile(getIsMobile());
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
-  const toggleTheme = useCallback(() => {
-    setTheme((prev) => {
-      const next = prev === 'light' ? 'dark' : 'light';
-      storeTheme(next);
-      return next;
-    });
   }, []);
 
   const syncBursts = useCallback(() => {
