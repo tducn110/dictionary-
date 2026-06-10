@@ -14,32 +14,14 @@
  * Visual: very dark warm brown (#1C1915) — intimate, like reading by lamplight.
  * Controls are minimal text links separated by middle dots.
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router';
-import type { Burst, Session } from '../lib/types';
+import type { Session } from '../lib/types';
 import { decodeSession } from '../lib/shareUtils';
 import { createSampleSession } from '../lib/sampleSession';
-import { getReplayStateAtTime, getSessionDuration } from '../lib/replayMath';
-import {
-  addCharToBursts,
-  createBurstBuilderState,
-  getAllBursts,
-  removeLastCharFromBursts,
-  buildBurstsFromEvents,
-  type BurstBuilderState,
-} from '../lib/burstDetector';
 import { getBurstStyle, getGhostStyle } from '../lib/fontMapper';
 import { replayViewContent } from '../content/replayViewContent';
 import { useReplayController } from '../hooks/useReplayController';
-import { applyReplayEvent } from '../lib/replayEngine';
-
-type ReplaySpeed = '1x' | '2x' | '4x';
-
-interface GhostAnimation {
-  id: string;
-  char: string;
-  startedAt: number;
-}
 
 export function ReplayView() {
   const navigate = useNavigate();
@@ -58,213 +40,24 @@ export function ReplayView() {
     return createSampleSession();
   }, [location.state, searchParams]);
 
-  const [bursts, setBursts] = useState<Burst[]>([]);
-  const [ghosts, setGhosts] = useState<GhostAnimation[]>([]);
-  const {
-    isPlaying,
-    setIsPlaying,
-    hasStarted,
-    setHasStarted,
-    speed,
-    setSpeed,
-    progress,
-    setProgress,
-    isPausing,
-    setIsPausing,
-    isComplete,
-    setIsComplete,
-    play,
-    pause,
-    restart,
-    cycleSpeed,
-  } = useReplayController({ session });
+  const replay = useReplayController({ session, isSharedLink });
   const [isSample] = useState(!location.state?.session && !searchParams.get('d'));
 
   const isMobile = typeof window !== 'undefined' && (('ontouchstart' in window) || window.innerWidth < 640);
 
-  const eventIndexRef = useRef(0);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const burstBuilderRef = useRef<BurstBuilderState>(createBurstBuilderState());
-  const ghostIdRef = useRef(0);
-  const autoStartedRef = useRef(false);
-
-  const speedMultiplier = speed === '4x' ? 4 : speed === '2x' ? 2 : 1;
-  const totalDuration = getSessionDuration(session);
-
-  const clearTimer = useCallback(() => {
-    if (timerRef.current) {
-      clearTimeout(timerRef.current);
-      timerRef.current = null;
-    }
+  // Auto-play page title side effect
+  useEffect(() => {
+    document.title = replayViewContent.title;
   }, []);
-
-  const reset = useCallback(() => {
-    clearTimer();
-    setBursts([]);
-    setGhosts([]);
-    restart();
-    eventIndexRef.current = 0;
-    ghostIdRef.current = 0;
-    burstBuilderRef.current = createBurstBuilderState();
-  }, [clearTimer, restart]);
-
-  const processNextEvent = useCallback(() => {
-    const idx = eventIndexRef.current;
-    if (idx >= session.events.length) {
-      setIsPlaying(false);
-      setProgress(1);
-      setIsComplete(true);
-      return;
-    }
-
-    const event = session.events[idx];
-    setProgress(event.t / totalDuration);
-
-    if (idx > 0) {
-      const prevEvent = session.events[idx - 1];
-      const gap = event.t - prevEvent.t;
-      if (gap > 800) {
-        setIsPausing(true);
-        setTimeout(() => setIsPausing(false), Math.min(gap / speedMultiplier, 1500));
-      }
-    }
-
-    const { bursts: nextBursts, ghostToSpawn } = applyReplayEvent(
-      burstBuilderRef.current,
-      event
-    );
-    setBursts(nextBursts);
-
-    if (ghostToSpawn) {
-      const ghostId = `ghost-${ghostIdRef.current++}`;
-      setGhosts((prev) => [...prev, {
-        id: ghostId,
-        char: ghostToSpawn,
-        startedAt: performance.now(),
-      }]);
-
-      setTimeout(() => {
-        setGhosts((prev) => prev.filter((g) => g.id !== ghostId));
-      }, 350);
-    }
-
-    eventIndexRef.current = idx + 1;
-
-    if (idx + 1 < session.events.length) {
-      const nextEvent = session.events[idx + 1];
-      const delay = (nextEvent.t - event.t) / speedMultiplier;
-      timerRef.current = setTimeout(processNextEvent, Math.max(delay, 8));
-    } else {
-      setIsPlaying(false);
-      setProgress(1);
-      setIsComplete(true);
-    }
-  }, [session.events, speedMultiplier, totalDuration, setIsPlaying, setProgress, setIsComplete, setIsPausing]);
-
-  const startReplay = useCallback(() => {
-    if (!hasStarted) {
-      reset();
-      setHasStarted(true);
-    }
-    play();
-    processNextEvent();
-  }, [hasStarted, processNextEvent, reset, play, setHasStarted]);
-
-  const pauseReplay = useCallback(() => {
-    clearTimer();
-    pause();
-  }, [clearTimer, pause]);
-
-  const togglePlayPause = useCallback(() => {
-    if (isPlaying) {
-      pauseReplay();
-    } else if (isComplete) {
-      reset();
-      setTimeout(() => {
-        setHasStarted(true);
-        play();
-        processNextEvent();
-      }, 50);
-    } else {
-      startReplay();
-    }
-  }, [isPlaying, isComplete, pauseReplay, startReplay, reset, processNextEvent, setHasStarted, play]);
-
-  const scrubTo = useCallback(
-    (fraction: number) => {
-      clearTimer();
-      const targetTime = fraction * totalDuration;
-      const snapshot = getReplayStateAtTime(session, targetTime);
-
-      // Reset mutable refs to match the snapshot
-      burstBuilderRef.current = createBurstBuilderState();
-      // Re-feed events into the builder so it stays in sync for
-      // any subsequent processNextEvent calls after scrubbing.
-      for (let i = 0; i < snapshot.eventIndex; i++) {
-        const ev = session.events[i];
-        if (ev.type === 'insert' && ev.char) {
-          addCharToBursts(
-            burstBuilderRef.current,
-            ev.char, ev.iki, ev.confidence, ev.hesitation, ev.pause
-          );
-        } else if (ev.type === 'delete') {
-          removeLastCharFromBursts(burstBuilderRef.current);
-        }
-      }
-      ghostIdRef.current = 0;
-      setGhosts([]);
-
-      setBursts(snapshot.bursts);
-      eventIndexRef.current = snapshot.eventIndex;
-      setProgress(fraction);
-      setHasStarted(true);
-      setIsComplete(snapshot.isComplete);
-      setIsPlaying(false);
-    },
-    [clearTimer, session, totalDuration]
-  );
 
   const handleProgressClick = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
       const rect = e.currentTarget.getBoundingClientRect();
       const fraction = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-      scrubTo(fraction);
+      replay.scrubTo(fraction);
     },
-    [scrubTo]
+    [replay]
   );
-
-
-
-  // Auto-play on shared links (?d=)
-  useEffect(() => {
-    document.title = replayViewContent.title;
-
-    if (isSharedLink && !autoStartedRef.current) {
-      autoStartedRef.current = true;
-      const autoTimer = setTimeout(() => {
-        setHasStarted(true);
-        setIsPlaying(true);
-        setIsComplete(false);
-        processNextEvent();
-      }, 1000);
-      return () => {
-        clearTimeout(autoTimer);
-        clearTimer();
-      };
-    }
-
-    return () => clearTimer();
-  }, [clearTimer, isSharedLink, processNextEvent]);
-
-  useEffect(() => {
-    if (isComplete && hasStarted) {
-      const timer = setTimeout(() => {
-        const finalBursts = buildBurstsFromEvents(session.events);
-        setBursts(finalBursts);
-      }, 800);
-      return () => clearTimeout(timer);
-    }
-  }, [isComplete, hasStarted, session.events]);
 
   const leftPad = 'max(2rem, 8vw)';
 
@@ -327,7 +120,7 @@ export function ReplayView() {
         style={{ paddingLeft: leftPad, paddingRight: leftPad }}
       >
         <div className="w-full min-h-[200px]" style={{ maxWidth: '42rem' }}>
-          {!hasStarted ? (
+          {!replay.hasStarted ? (
             <div className="flex flex-col items-start gap-10 pt-8 md:pt-12">
               <p
                 className="text-[#F0E8DE]"
@@ -342,7 +135,7 @@ export function ReplayView() {
                 {replayViewContent.intro}
               </p>
               <button
-                onClick={startReplay}
+                onClick={replay.startReplay}
                 className="cursor-pointer"
                 style={{
                   background: 'none',
@@ -380,7 +173,7 @@ export function ReplayView() {
                   lineHeight: 1.8,
                 }}
               >
-                {bursts.map((burst) => (
+                {replay.bursts.map((burst) => (
                   <span key={burst.id} style={getBurstStyle(burst.confidence, burst.hesitation, burst.pauseBefore, true)}>
                     {burst.chars.map((ch, i) =>
                       ch === '\n' ? <br key={`${burst.id}-br-${i}`} /> : ch
@@ -396,19 +189,19 @@ export function ReplayView() {
                 ))}
 
                 {/* Ghost animations */}
-                {ghosts.map((ghost) => (
+                {replay.ghosts.map((ghost) => (
                   <GhostChar key={ghost.id} char={ghost.char} />
                 ))}
 
                 {/* Cursor */}
-                {isPlaying && !isComplete && (
+                {replay.isPlaying && !replay.isComplete && (
                   <span
                     className="inline-block w-[2px] ml-[1px]"
                     style={{
                       height: '1.2em',
                       verticalAlign: 'text-bottom',
                       background: '#B87A5E',
-                      animation: isPausing
+                      animation: replay.isPausing
                         ? 'replayBreathe 2s ease-in-out infinite'
                         : 'replayBlink 1.2s ease-in-out infinite',
                     }}
@@ -417,7 +210,7 @@ export function ReplayView() {
               </div>
 
               {/* Replay complete — message + Write Your Own */}
-              {isComplete && (
+              {replay.isComplete && (
                 <div style={{ animation: 'replayFadeIn 0.8s ease-out' }}>
                   <p
                     className="mt-14"
@@ -470,7 +263,7 @@ export function ReplayView() {
       </div>
 
       {/* Controls — minimal text links separated by · */}
-      {hasStarted && (
+      {replay.hasStarted && (
         <div
           className="relative z-10 pb-8 pt-4"
           style={{ paddingLeft: leftPad, paddingRight: leftPad }}
@@ -492,8 +285,8 @@ export function ReplayView() {
                 className="h-full"
                 style={{
                   background: '#B87A5E',
-                  width: `${progress * 100}%`,
-                  transition: isPlaying ? 'width 0.3s ease-out' : 'none',
+                  width: `${replay.progress * 100}%`,
+                  transition: replay.isPlaying ? 'width 0.3s ease-out' : 'none',
                 }}
               />
             </div>
@@ -502,13 +295,13 @@ export function ReplayView() {
           {/* Text controls — separated by middle dots */}
           <div className="flex items-center gap-0">
             <button
-              onClick={togglePlayPause}
+              onClick={replay.togglePlayPause}
               className="hover:text-[#B8A99A] transition-colors cursor-pointer"
               style={controlStyle}
             >
-              {isPlaying
+              {replay.isPlaying
                 ? replayViewContent.controls.pause
-                : isComplete
+                : replay.isComplete
                   ? replayViewContent.controls.replay
                   : replayViewContent.controls.play}
             </button>
@@ -516,28 +309,23 @@ export function ReplayView() {
             <span className="text-[#3D3630] mx-3" style={{ fontSize: '0.65rem' }}>{'\u00b7'}</span>
 
             <button
-              onClick={cycleSpeed}
+              onClick={replay.cycleSpeed}
               className="hover:text-[#B8A99A] transition-colors cursor-pointer"
               style={controlStyle}
             >
-              {speed === '1x'
+              {replay.speed === '1x'
                 ? replayViewContent.controls.speed1x
-                : speed === '2x'
+                : replay.speed === '2x'
                   ? replayViewContent.controls.speed2x
-                  : replayViewContent.controls.speed4x}
+                  : replay.speed === '4x'
+                    ? replayViewContent.controls.speed4x
+                    : ''}
             </button>
 
             <span className="text-[#3D3630] mx-3" style={{ fontSize: '0.65rem' }}>{'\u00b7'}</span>
 
             <button
-              onClick={() => {
-                reset();
-                setTimeout(() => {
-                  setHasStarted(true);
-                  setIsPlaying(true);
-                  processNextEvent();
-                }, 50);
-              }}
+              onClick={replay.restart}
               className="hover:text-[#B8A99A] transition-colors cursor-pointer"
               style={controlStyle}
             >
