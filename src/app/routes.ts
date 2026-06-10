@@ -1,24 +1,40 @@
+import { ComponentType, LazyExoticComponent, Suspense, createElement, lazy } from 'react';
 import { createBrowserRouter } from 'react-router';
-import { LandingPage } from './components/LandingPage';
-import { WritingSurface } from './components/WritingSurface';
-import { PreviewScreen } from './components/PreviewScreen';
-import { ReplayView } from './components/ReplayView';
+
+const LandingPage = lazy(() =>
+  import('./components/LandingPage').then(({ LandingPage }) => ({ default: LandingPage }))
+);
+const WritingSurface = lazy(() =>
+  import('./components/WritingSurface').then(({ WritingSurface }) => ({ default: WritingSurface }))
+);
+const PreviewScreen = lazy(() =>
+  import('./components/PreviewScreen').then(({ PreviewScreen }) => ({ default: PreviewScreen }))
+);
+const ReplayView = lazy(() =>
+  import('./components/ReplayView').then(({ ReplayView }) => ({ default: ReplayView }))
+);
+
+function lazyRoute(Component: LazyExoticComponent<ComponentType>) {
+  return function LazyRoute() {
+    return createElement(Suspense, { fallback: null }, createElement(Component));
+  };
+}
 
 export const router = createBrowserRouter([
   {
     path: '/',
-    Component: LandingPage,
+    Component: lazyRoute(LandingPage),
   },
   {
     path: '/write',
-    Component: WritingSurface,
+    Component: lazyRoute(WritingSurface),
   },
   {
     path: '/preview',
-    Component: PreviewScreen,
+    Component: lazyRoute(PreviewScreen),
   },
   {
     path: '/replay',
-    Component: ReplayView,
+    Component: lazyRoute(ReplayView),
   },
 ]);
