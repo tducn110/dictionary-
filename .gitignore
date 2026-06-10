@@ -3,3 +3,4 @@ dist/
 .vite/
 .codegraph/
 *.log
+repomix-output.xml

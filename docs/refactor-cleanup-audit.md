@@ -2,8 +2,9 @@
 
 Date: 2026-06-10
 
-This report is intentionally report-only. Do not delete scaffold files or remove
-dependencies from this patch.
+This report started as a report-only cleanup audit. Follow-up cleanup patches
+then removed scaffold files, pruned scaffold dependencies, and resolved audited
+dependency vulnerabilities after validation passed.
 
 ## Runtime Entry
 
@@ -38,8 +39,8 @@ Triage classifies these as non-runtime/scaffold candidates:
 - `src/app/components/figma/ImageWithFallback.tsx`
 - `src/imports/*`
 
-Do not delete these in a refactor patch. If cleanup is desired, use a separate
-branch after a fresh `typecheck`, `test`, and `build` pass.
+These were removed in the scaffold cleanup patch after a fresh import scan and
+validation pass.
 
 ## Dependency Usage
 
@@ -85,22 +86,19 @@ Dependencies with no import hits from triage:
 
 ## Security Audit
 
-`npm audit` currently reports two high severity items:
+`npm audit` previously reported two high severity items:
 
-- `react-router@7.13.0`; audit suggests `react-router@7.17.0`.
-- `vite@6.3.5`; audit suggests `vite@6.4.3`.
+- `react-router@7.13.0`; resolved by bumping to `react-router@7.17.0`.
+- `vite@6.3.5`; resolved by bumping to `vite@6.4.3`.
 
-Do this as a separate security patch. Do not use `npm audit fix --force`
-without reading the resulting diff.
+The security patch was done separately without `npm audit fix --force`.
 
 ## Recommended Cleanup Order
 
-1. Security patch: manually bump `react-router` and `vite`, then run
-   `npm run typecheck`, `npm test`, `npm run build`, and `npm audit`.
-2. Scaffold quarantine patch: move or delete scaffold only after explicit
-   approval, with `components/ui` handled as one cleanup unit.
-3. Dependency cleanup patch: remove dependencies only after scaffold cleanup and
-   a fresh import scan prove they are unused.
+1. Keep pure logic and smoke tests passing before future refactors.
+2. Keep dependency cleanup separate from feature work.
+3. If a deleted scaffold component is needed later, restore the relevant file
+   from the scaffold cleanup commit instead of re-adding the whole scaffold.
 
 Rollback should be one commit at a time. Avoid combining security, scaffold
 deletion, and dependency removal in one commit.
