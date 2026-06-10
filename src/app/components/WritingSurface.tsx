@@ -43,6 +43,7 @@ export function WritingSurface() {
     deleteWordBackward,
     createPreviewState,
     createFallbackPreviewState,
+    clearSavedSession,
   } = useWritingSession(resumeState);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -101,10 +102,12 @@ export function WritingSurface() {
   const doFinish = useCallback(() => {
     try {
       const previewState = createPreviewState();
+      clearSavedSession();
       navigate('/preview', { state: { ...previewState, theme } });
     } catch (err) {
       console.error('doFinish error, navigating with minimal state:', err);
       const previewState = createFallbackPreviewState();
+      clearSavedSession();
       navigate('/preview', {
         state: {
           ...previewState,
@@ -112,7 +115,7 @@ export function WritingSurface() {
         },
       });
     }
-  }, [createFallbackPreviewState, createPreviewState, navigate, theme]);
+  }, [createFallbackPreviewState, createPreviewState, clearSavedSession, navigate, theme]);
 
   const hasContent = bursts.length > 0;
 

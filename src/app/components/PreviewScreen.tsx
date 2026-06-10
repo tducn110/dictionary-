@@ -14,6 +14,7 @@ import { BurstRenderer } from './BurstRenderer';
 import { buildShareUrl } from '../lib/shareUtils';
 import { toast, Toaster } from 'sonner';
 import { previewScreenContent } from '../content/previewScreenContent';
+import { STORAGE_KEY } from '../hooks/useWritingSession';
 
 type FoiTheme = 'light' | 'dark';
 
@@ -60,6 +61,11 @@ export function PreviewScreen() {
   }, [navigate, resumeState]);
 
   const handleWriteAnother = useCallback(() => {
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+    } catch (e) {
+      console.error('Failed to clear saved session:', e);
+    }
     navigate('/write');
   }, [navigate]);
 
