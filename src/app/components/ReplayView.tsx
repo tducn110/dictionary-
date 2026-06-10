@@ -19,6 +19,7 @@ import { useLocation, useNavigate, useSearchParams } from 'react-router';
 import type { Burst, Session } from '../lib/types';
 import { decodeSession } from '../lib/shareUtils';
 import { createSampleSession } from '../lib/sampleSession';
+import { getReplayStateAtTime, getSessionDuration } from '../lib/replayMath';
 import {
   addCharToBursts,
   createBurstBuilderState,
@@ -74,9 +75,7 @@ export function ReplayView() {
   const autoStartedRef = useRef(false);
 
   const speedMultiplier = speed === '4x' ? 4 : speed === '2x' ? 2 : 1;
-  const totalDuration = session.events.length > 0
-    ? session.events[session.events.length - 1].t
-    : 0;
+  const totalDuration = getSessionDuration(session);
 
   const clearTimer = useCallback(() => {
     if (timerRef.current) {
@@ -205,18 +204,13 @@ export function ReplayView() {
     (fraction: number) => {
       clearTimer();
       const targetTime = fraction * totalDuration;
+      const snapshot = getReplayStateAtTime(session, targetTime);
 
-      let targetIdx = 0;
-      for (let i = 0; i < session.events.length; i++) {
-        if (session.events[i].t <= targetTime) targetIdx = i + 1;
-        else break;
-      }
-
+      // Reset mutable refs to match the snapshot
       burstBuilderRef.current = createBurstBuilderState();
-      ghostIdRef.current = 0;
-      setGhosts([]);
-
-      for (let i = 0; i < targetIdx; i++) {
+      // Re-feed events into the builder so it stays in sync for
+      // any subsequent processNextEvent calls after scrubbing.
+      for (let i = 0; i < snapshot.eventIndex; i++) {
         const ev = session.events[i];
         if (ev.type === 'insert' && ev.char) {
           addCharToBursts(
@@ -227,15 +221,17 @@ export function ReplayView() {
           removeLastCharFromBursts(burstBuilderRef.current);
         }
       }
+      ghostIdRef.current = 0;
+      setGhosts([]);
 
-      setBursts(getAllBursts(burstBuilderRef.current));
-      eventIndexRef.current = targetIdx;
+      setBursts(snapshot.bursts);
+      eventIndexRef.current = snapshot.eventIndex;
       setProgress(fraction);
       setHasStarted(true);
-      setIsComplete(targetIdx >= session.events.length);
+      setIsComplete(snapshot.isComplete);
       setIsPlaying(false);
     },
-    [clearTimer, session.events, totalDuration]
+    [clearTimer, session, totalDuration]
   );
 
   const handleProgressClick = useCallback(
