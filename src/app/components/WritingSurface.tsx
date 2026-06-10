@@ -27,6 +27,7 @@ import {
 } from '../lib/burstDetector';
 import { BurstRenderer } from './BurstRenderer';
 import { useFoiTheme } from '../hooks/useFoiTheme';
+import { useMobileMode } from '../hooks/useMobileMode';
 
 /** State passed back from PreviewScreen when user chooses "Keep Writing" */
 export interface WritingSurfaceResumeState {
@@ -38,13 +39,6 @@ export interface WritingSurfaceResumeState {
   sessionStart: number;
 }
 
-function getIsMobile(): boolean {
-  return (
-    ('ontouchstart' in window) ||
-    window.innerWidth < 640
-  );
-}
-
 export function WritingSurface() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -54,7 +48,7 @@ export function WritingSurface() {
   const [bursts, setBursts] = useState<Burst[]>(resumeState?.bursts ?? []);
   const [events, setEvents] = useState<TypingEvent[]>(resumeState?.events ?? []);
   const [isMac, setIsMac] = useState(true);
-  const [isMobile, setIsMobile] = useState(false);
+  const isMobile = useMobileMode();
   const { theme, isDark, toggleTheme } = useFoiTheme();
   const [firstCharAnim, setFirstCharAnim] = useState(false);
 
@@ -75,11 +69,6 @@ export function WritingSurface() {
     document.title = 'Font of Intent';
     const platform = navigator.platform || navigator.userAgent || '';
     setIsMac(/Mac|iPhone|iPad|iPod/i.test(platform));
-    setIsMobile(getIsMobile());
-
-    const handleResize = () => setIsMobile(getIsMobile());
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
   const syncBursts = useCallback(() => {
