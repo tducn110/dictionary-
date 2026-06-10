@@ -23,25 +23,106 @@ export interface WritingSurfaceResumeState {
   sessionStart: number;
 }
 
+export const STORAGE_KEY = 'foi_session_draft_v1';
+
 export function useWritingSession(resumeState: WritingSurfaceResumeState | undefined) {
-  const [bursts, setBursts] = useState<Burst[]>(resumeState?.bursts ?? []);
-  const [events, setEvents] = useState<TypingEvent[]>(resumeState?.events ?? []);
+  // Load initial state from resumeState or localStorage
+  const savedStateRef = useRef<WritingSurfaceResumeState | null>(null);
+  if (!resumeState && !savedStateRef.current) {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        savedStateRef.current = JSON.parse(saved) as WritingSurfaceResumeState;
+      }
+    } catch (e) {
+      console.error('Failed to parse saved session:', e);
+    }
+  }
+
+  const effectiveState = resumeState || savedStateRef.current || undefined;
+
+  const [bursts, setBursts] = useState<Burst[]>(effectiveState?.bursts ?? []);
+  const [events, setEvents] = useState<TypingEvent[]>(effectiveState?.events ?? []);
   const [firstCharAnim, setFirstCharAnim] = useState(false);
 
-  const signalStateRef = useRef<SignalState>(resumeState?.signalState ?? createSignalState());
-  const sessionStartRef = useRef<number>(resumeState?.sessionStart ?? 0);
-  const textBufferRef = useRef<string[]>(resumeState?.textBuffer ?? []);
-  const eventsRef = useRef<TypingEvent[]>(resumeState?.events ?? []);
+  const signalStateRef = useRef<SignalState>(effectiveState?.signalState ?? createSignalState());
+  
+  // Calculate session start timestamp relative to current performance.now() to ensure timeline continuity.
+  // This prevents negative 't' values or timeline gaps when resuming or page refreshing.
+  const lastEventT = effectiveState?.events && effectiveState.events.length > 0
+    ? effectiveState.events[effectiveState.events.length - 1].t
+    : 0;
+  const sessionStartRef = useRef<number>(performance.now() - lastEventT);
+
+  const textBufferRef = useRef<string[]>(effectiveState?.textBuffer ?? []);
+  const eventsRef = useRef<TypingEvent[]>(effectiveState?.events ?? []);
   const burstBuilderRef = useRef<BurstBuilderState>(
-    resumeState?.burstBuilderState ?? createBurstBuilderState()
+    effectiveState?.burstBuilderState ?? createBurstBuilderState()
   );
 
   useEffect(() => {
     eventsRef.current = events;
   }, [events]);
 
+  // Maintain latest state for unmount auto-saving
+  const lastStateRef = useRef<WritingSurfaceResumeState | null>(null);
+  useEffect(() => {
+    if (events.length > 0) {
+      lastStateRef.current = {
+        bursts,
+        burstBuilderState: burstBuilderRef.current,
+        events,
+        textBuffer: textBufferRef.current,
+        signalState: signalStateRef.current,
+        sessionStart: sessionStartRef.current,
+      };
+    }
+  }, [events, bursts]);
+
+  // Debounced auto-save (triggered 1 second after typing stops)
+  useEffect(() => {
+    if (events.length === 0) return;
+
+    const handler = setTimeout(() => {
+      if (lastStateRef.current) {
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(lastStateRef.current));
+        } catch (e) {
+          console.error('Failed to save session to localStorage:', e);
+        }
+      }
+    }, 1000);
+
+    return () => clearTimeout(handler);
+  }, [events]);
+
+  // Save immediately on unmount
+  useEffect(() => {
+    return () => {
+      if (lastStateRef.current) {
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(lastStateRef.current));
+        } catch (e) {
+          console.error('Failed to save session on unmount:', e);
+        }
+      }
+    };
+  }, []);
+
+  const clearSavedSession = useCallback(() => {
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+      lastStateRef.current = null;
+    } catch (e) {
+      console.error('Failed to clear saved session:', e);
+    }
+  }, []);
+
   const startSession = useCallback(() => {
-    sessionStartRef.current = performance.now();
+    // Only reset session start if starting a brand new session with no events
+    if (eventsRef.current.length === 0) {
+      sessionStartRef.current = performance.now();
+    }
   }, []);
 
   const syncBursts = useCallback(() => {
@@ -186,5 +267,6 @@ export function useWritingSession(resumeState: WritingSurfaceResumeState | undef
     deleteWordBackward,
     createPreviewState,
     createFallbackPreviewState,
+    clearSavedSession,
   };
 }
