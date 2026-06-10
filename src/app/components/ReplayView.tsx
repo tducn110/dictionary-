@@ -31,6 +31,7 @@ import {
 import { getBurstStyle, getGhostStyle } from '../lib/fontMapper';
 import { replayViewContent } from '../content/replayViewContent';
 import { useReplayController } from '../hooks/useReplayController';
+import { applyReplayEvent } from '../lib/replayEngine';
 
 type ReplaySpeed = '1x' | '2x' | '4x';
 
@@ -128,41 +129,23 @@ export function ReplayView() {
       }
     }
 
-    if (event.type === 'insert' && event.char) {
-      addCharToBursts(
-        burstBuilderRef.current,
-        event.char,
-        event.iki,
-        event.confidence,
-        event.hesitation,
-        event.pause
-      );
-      setBursts(getAllBursts(burstBuilderRef.current));
-    } else if (event.type === 'delete') {
-      const allBursts = getAllBursts(burstBuilderRef.current);
-      let deletedChar = '';
-      for (let i = allBursts.length - 1; i >= 0; i--) {
-        if (allBursts[i].chars.length > 0) {
-          deletedChar = allBursts[i].chars[allBursts[i].chars.length - 1];
-          break;
-        }
-      }
+    const { bursts: nextBursts, ghostToSpawn } = applyReplayEvent(
+      burstBuilderRef.current,
+      event
+    );
+    setBursts(nextBursts);
 
-      if (deletedChar) {
-        const ghostId = `ghost-${ghostIdRef.current++}`;
-        setGhosts((prev) => [...prev, {
-          id: ghostId,
-          char: deletedChar,
-          startedAt: performance.now(),
-        }]);
+    if (ghostToSpawn) {
+      const ghostId = `ghost-${ghostIdRef.current++}`;
+      setGhosts((prev) => [...prev, {
+        id: ghostId,
+        char: ghostToSpawn,
+        startedAt: performance.now(),
+      }]);
 
-        setTimeout(() => {
-          setGhosts((prev) => prev.filter((g) => g.id !== ghostId));
-        }, 350);
-      }
-
-      removeLastCharFromBursts(burstBuilderRef.current);
-      setBursts(getAllBursts(burstBuilderRef.current));
+      setTimeout(() => {
+        setGhosts((prev) => prev.filter((g) => g.id !== ghostId));
+      }, 350);
     }
 
     eventIndexRef.current = idx + 1;
