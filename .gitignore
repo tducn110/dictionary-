@@ -4,3 +4,4 @@ dist/
 .codegraph/
 *.log
 repomix-output.xml
+.vercel
