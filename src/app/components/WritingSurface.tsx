@@ -19,6 +19,8 @@ import {
   useWritingSession,
   type WritingSurfaceResumeState,
 } from '../hooks/useWritingSession';
+import { writingSurfaceContent } from '../content/writingSurfaceContent';
+import { appMetaContent } from '../content/appMetaContent';
 
 export type { WritingSurfaceResumeState } from '../hooks/useWritingSession';
 
@@ -49,7 +51,7 @@ export function WritingSurface() {
     if (!resumeState) {
       startSession();
     }
-    document.title = 'Font of Intent';
+    document.title = appMetaContent.title;
     const platform = navigator.platform || navigator.userAgent || '';
     setIsMac(/Mac|iPhone|iPad|iPod/i.test(platform));
   }, [resumeState, startSession]);
@@ -160,7 +162,7 @@ export function WritingSurface() {
             (e.currentTarget as HTMLElement).style.color = backColor;
           }}
         >
-          back
+          {writingSurfaceContent.backLabel}
         </button>
 
         {/* Right side — toggle · finish (desktop) */}
@@ -183,7 +185,7 @@ export function WritingSurface() {
               onMouseEnter={(e) => { (e.target as HTMLElement).style.color = finishColor; }}
               onMouseLeave={(e) => { (e.target as HTMLElement).style.color = toggleColor; }}
             >
-              {isDark ? 'light' : 'dark'}
+              {isDark ? writingSurfaceContent.theme.light : writingSurfaceContent.theme.dark}
             </button>
 
             {hasContent && (
@@ -212,7 +214,7 @@ export function WritingSurface() {
                     onMouseEnter={(e) => { (e.target as HTMLElement).style.borderBottomColor = finishUnderlineHover; }}
                     onMouseLeave={(e) => { (e.target as HTMLElement).style.borderBottomColor = finishUnderline; }}
                   >
-                    Finish Letter {'\u2192'}
+                    {writingSurfaceContent.finishLabel} {'\u2192'}
                   </span>
                 </button>
               </>
@@ -239,7 +241,7 @@ export function WritingSurface() {
               alignItems: 'center',
             }}
           >
-            {isDark ? 'light' : 'dark'}
+            {isDark ? writingSurfaceContent.theme.light : writingSurfaceContent.theme.dark}
           </button>
         )}
       </div>
@@ -277,7 +279,7 @@ export function WritingSurface() {
                 borderBottom: `1px solid ${finishUnderline}`,
               }}
             >
-              Finish Letter {'\u2192'}
+              {writingSurfaceContent.finishLabel} {'\u2192'}
             </span>
           </button>
         </div>
@@ -310,7 +312,7 @@ export function WritingSurface() {
                   transition: 'color 0.3s ease',
                 }}
               >
-                type naturally{'\n'}your rhythm shapes the typography
+                {writingSurfaceContent.placeholder[0]}{'\n'}{writingSurfaceContent.placeholder[1]}
               </span>
             )}
             {bursts.length === 0 && <br />}
@@ -353,7 +355,7 @@ export function WritingSurface() {
           autoCapitalize="off"
           autoComplete="off"
           spellCheck={false}
-          aria-label="Type your letter here"
+          aria-label={writingSurfaceContent.inputAriaLabel}
         />
       </div>
 
@@ -377,7 +379,7 @@ export function WritingSurface() {
               transition: 'border-color 0.3s ease, color 0.3s ease',
             }}
           >
-            Done
+            {writingSurfaceContent.doneLabel}
           </button>
         ) : (
           /* Desktop: keyboard shortcut hint */
@@ -391,7 +393,8 @@ export function WritingSurface() {
               transition: 'color 0.3s ease',
             }}
           >
-            {isMac ? '\u2318' : 'Ctrl'}+Enter to finish
+            {isMac ? writingSurfaceContent.shortcut.mac : writingSurfaceContent.shortcut.ctrl}
+            {writingSurfaceContent.shortcut.suffix}
           </p>
         )}
       </div>
