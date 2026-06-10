@@ -3,129 +3,31 @@
  * Headline: "your words reveal what your fingers felt"
  * Auto-playing demo uses burst-grouped rendering.
  */
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router';
-import type { Burst } from '../lib/types';
 import { createSampleSession } from '../lib/sampleSession';
-import {
-  addCharToBursts,
-  createBurstBuilderState,
-  getAllBursts,
-  removeLastCharFromBursts,
-  type BurstBuilderState,
-} from '../lib/burstDetector';
 import { getBurstStyle, getGhostStyle } from '../lib/fontMapper';
 import { landingPageContent } from '../content/landingPageContent';
-
-interface GhostAnim {
-  id: string;
-  char: string;
-}
+import { useReplayController } from '../hooks/useReplayController';
 
 export function LandingPage() {
   const navigate = useNavigate();
-  const [bursts, setBursts] = useState<Burst[]>([]);
-  const [ghosts, setGhosts] = useState<GhostAnim[]>([]);
-  const [demoPlaying, setDemoPlaying] = useState(false);
-  const [demoComplete, setDemoComplete] = useState(false);
-  const [demoPausing, setDemoPausing] = useState(false);
-
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const eventIndexRef = useRef(0);
-  const burstBuilderRef = useRef<BurstBuilderState>(createBurstBuilderState());
-  const ghostIdRef = useRef(0);
-  const hasMountedRef = useRef(false);
-
   const session = useRef(createSampleSession()).current;
-
-  const clearTimer = useCallback(() => {
-    if (timerRef.current) {
-      clearTimeout(timerRef.current);
-      timerRef.current = null;
-    }
-  }, []);
-
-  const processNextEvent = useCallback(() => {
-    const idx = eventIndexRef.current;
-    if (idx >= session.events.length) {
-      setDemoPlaying(false);
-      setDemoComplete(true);
-      setDemoPausing(false);
-      return;
-    }
-
-    const event = session.events[idx];
-
-    // Detect pauses for cursor breathing
-    if (idx > 0) {
-      const prevEvent = session.events[idx - 1];
-      const gap = event.t - prevEvent.t;
-      if (gap > 800) {
-        setDemoPausing(true);
-        setTimeout(() => setDemoPausing(false), Math.min(gap / 3, 1500));
-      } else {
-        setDemoPausing(false);
-      }
-    }
-
-    if (event.type === 'insert' && event.char) {
-      addCharToBursts(
-        burstBuilderRef.current,
-        event.char,
-        event.iki,
-        event.confidence,
-        event.hesitation,
-        event.pause
-      );
-      setBursts(getAllBursts(burstBuilderRef.current));
-    } else if (event.type === 'delete') {
-      const allB = getAllBursts(burstBuilderRef.current);
-      let delChar = '';
-      for (let i = allB.length - 1; i >= 0; i--) {
-        if (allB[i].chars.length > 0) {
-          delChar = allB[i].chars[allB[i].chars.length - 1];
-          break;
-        }
-      }
-      if (delChar) {
-        const gid = `dg-${ghostIdRef.current++}`;
-        setGhosts((prev) => [...prev, { id: gid, char: delChar }]);
-        setTimeout(() => {
-          setGhosts((prev) => prev.filter((g) => g.id !== gid));
-        }, 350);
-      }
-      removeLastCharFromBursts(burstBuilderRef.current);
-      setBursts(getAllBursts(burstBuilderRef.current));
-    }
-
-    eventIndexRef.current = idx + 1;
-
-    if (idx + 1 < session.events.length) {
-      const nextEvent = session.events[idx + 1];
-      const delay = (nextEvent.t - event.t) / 3;
-      timerRef.current = setTimeout(processNextEvent, Math.max(delay, 8));
-    } else {
-      setDemoPlaying(false);
-      setDemoComplete(true);
-      setDemoPausing(false);
-    }
-  }, [session.events]);
+  const {
+    bursts,
+    ghosts,
+    isPlaying: demoPlaying,
+    isComplete: demoComplete,
+    isPausing: demoPausing,
+  } = useReplayController({
+    session,
+    autoplayDelay: 1500,
+    customSpeedMultiplier: 3,
+  });
 
   useEffect(() => {
-    if (hasMountedRef.current) return;
-    hasMountedRef.current = true;
     document.title = landingPageContent.title;
-
-    const startTimer = setTimeout(() => {
-      setDemoPlaying(true);
-      processNextEvent();
-    }, 1500);
-
-    return () => {
-      clearTimeout(startTimer);
-      clearTimer();
-    };
-  }, [processNextEvent, clearTimer]);
+  }, []);
 
   const leftPad = 'max(2rem, 8vw)';
 

@@ -15,6 +15,8 @@ export type ReplaySpeed = '1x' | '2x' | '4x';
 export interface UseReplayControllerOptions {
   session: Session;
   isSharedLink?: boolean;
+  autoplayDelay?: number;
+  customSpeedMultiplier?: number;
 }
 
 interface GhostAnimation {
@@ -23,7 +25,12 @@ interface GhostAnimation {
   startedAt: number;
 }
 
-export function useReplayController({ session, isSharedLink }: UseReplayControllerOptions) {
+export function useReplayController({
+  session,
+  isSharedLink,
+  autoplayDelay,
+  customSpeedMultiplier,
+}: UseReplayControllerOptions) {
   const [bursts, setBursts] = useState<Burst[]>([]);
   const [ghosts, setGhosts] = useState<GhostAnimation[]>([]);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -39,7 +46,9 @@ export function useReplayController({ session, isSharedLink }: UseReplayControll
   const ghostIdRef = useRef(0);
   const autoStartedRef = useRef(false);
 
-  const speedMultiplier = speed === '4x' ? 4 : speed === '2x' ? 2 : 1;
+  const speedMultiplier = customSpeedMultiplier !== undefined
+    ? customSpeedMultiplier
+    : (speed === '4x' ? 4 : speed === '2x' ? 2 : 1);
   const totalDuration = getSessionDuration(session);
 
   const clearTimer = useCallback(() => {
@@ -199,16 +208,19 @@ export function useReplayController({ session, isSharedLink }: UseReplayControll
     }, 50);
   }, [reset, processNextEvent]);
 
-  // Auto-play on shared links (?d=)
+  // Auto-play trigger
   useEffect(() => {
-    if (isSharedLink && !autoStartedRef.current) {
+    const shouldAutoplay = isSharedLink || autoplayDelay !== undefined;
+    const delay = autoplayDelay !== undefined ? autoplayDelay : 1000;
+
+    if (shouldAutoplay && !autoStartedRef.current) {
       autoStartedRef.current = true;
       const autoTimer = setTimeout(() => {
         setHasStarted(true);
         setIsPlaying(true);
         setIsComplete(false);
         processNextEvent();
-      }, 1000);
+      }, delay);
       return () => {
         clearTimeout(autoTimer);
         clearTimer();
@@ -216,7 +228,7 @@ export function useReplayController({ session, isSharedLink }: UseReplayControll
     }
 
     return () => clearTimer();
-  }, [clearTimer, isSharedLink, processNextEvent]);
+  }, [clearTimer, isSharedLink, autoplayDelay, processNextEvent]);
 
   // Replay complete final bursts processing
   useEffect(() => {
