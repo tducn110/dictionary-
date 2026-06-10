@@ -30,6 +30,7 @@ import {
 } from '../lib/burstDetector';
 import { getBurstStyle, getGhostStyle } from '../lib/fontMapper';
 import { replayViewContent } from '../content/replayViewContent';
+import { useReplayController } from '../hooks/useReplayController';
 
 type ReplaySpeed = '1x' | '2x' | '4x';
 
@@ -58,12 +59,24 @@ export function ReplayView() {
 
   const [bursts, setBursts] = useState<Burst[]>([]);
   const [ghosts, setGhosts] = useState<GhostAnimation[]>([]);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [hasStarted, setHasStarted] = useState(false);
-  const [speed, setSpeed] = useState<ReplaySpeed>('2x');
-  const [progress, setProgress] = useState(0);
-  const [isPausing, setIsPausing] = useState(false);
-  const [isComplete, setIsComplete] = useState(false);
+  const {
+    isPlaying,
+    setIsPlaying,
+    hasStarted,
+    setHasStarted,
+    speed,
+    setSpeed,
+    progress,
+    setProgress,
+    isPausing,
+    setIsPausing,
+    isComplete,
+    setIsComplete,
+    play,
+    pause,
+    restart,
+    cycleSpeed,
+  } = useReplayController({ session });
   const [isSample] = useState(!location.state?.session && !searchParams.get('d'));
 
   const isMobile = typeof window !== 'undefined' && (('ontouchstart' in window) || window.innerWidth < 640);
@@ -88,15 +101,11 @@ export function ReplayView() {
     clearTimer();
     setBursts([]);
     setGhosts([]);
-    setIsPlaying(false);
-    setHasStarted(false);
-    setProgress(0);
-    setIsPausing(false);
-    setIsComplete(false);
+    restart();
     eventIndexRef.current = 0;
     ghostIdRef.current = 0;
     burstBuilderRef.current = createBurstBuilderState();
-  }, [clearTimer]);
+  }, [clearTimer, restart]);
 
   const processNextEvent = useCallback(() => {
     const idx = eventIndexRef.current;
@@ -167,22 +176,21 @@ export function ReplayView() {
       setProgress(1);
       setIsComplete(true);
     }
-  }, [session.events, speedMultiplier, totalDuration]);
+  }, [session.events, speedMultiplier, totalDuration, setIsPlaying, setProgress, setIsComplete, setIsPausing]);
 
   const startReplay = useCallback(() => {
     if (!hasStarted) {
       reset();
       setHasStarted(true);
     }
-    setIsPlaying(true);
-    setIsComplete(false);
+    play();
     processNextEvent();
-  }, [hasStarted, processNextEvent, reset]);
+  }, [hasStarted, processNextEvent, reset, play, setHasStarted]);
 
   const pauseReplay = useCallback(() => {
     clearTimer();
-    setIsPlaying(false);
-  }, [clearTimer]);
+    pause();
+  }, [clearTimer, pause]);
 
   const togglePlayPause = useCallback(() => {
     if (isPlaying) {
@@ -191,14 +199,13 @@ export function ReplayView() {
       reset();
       setTimeout(() => {
         setHasStarted(true);
-        setIsPlaying(true);
-        setIsComplete(false);
+        play();
         processNextEvent();
       }, 50);
     } else {
       startReplay();
     }
-  }, [isPlaying, isComplete, pauseReplay, startReplay, reset, processNextEvent]);
+  }, [isPlaying, isComplete, pauseReplay, startReplay, reset, processNextEvent, setHasStarted, play]);
 
   const scrubTo = useCallback(
     (fraction: number) => {
@@ -243,13 +250,7 @@ export function ReplayView() {
     [scrubTo]
   );
 
-  const cycleSpeed = useCallback(() => {
-    setSpeed((prev) => {
-      if (prev === '1x') return '2x';
-      if (prev === '2x') return '4x';
-      return '1x';
-    });
-  }, []);
+
 
   // Auto-play on shared links (?d=)
   useEffect(() => {
