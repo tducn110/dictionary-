@@ -6,15 +6,11 @@ Track the status of refactoring phases and future enhancements.
 | Phase | Description | Priority | Status | Milestone/Tag |
 | :--- | :--- | :--- | :--- | :--- |
 | **Phase A** | Refactor Landing Page demo to reuse `useReplayController` | P0 | **COMPLETED** | `refactor-landing-demo-v1` |
-| **Phase B** | LocalStorage Session Recovery | P1 | **IN PROGRESS** | - |
+| **Phase B** | LocalStorage Session Recovery | P1 | **COMPLETED** | `feature-session-recovery-v1` |
 | **Phase C** | Keyboard controls + Analytics charts | P2 | **DEFERRED** | - |
 
 ---
 
-## Active Tasks (Phase B)
-- [ ] Implement `localStorage` session recovery in the writing flow.
-- [ ] Version storage keys for session data.
-- [ ] Debounce auto-saves to prevent storage thrashing.
-- [ ] Restore draft on reload.
-- [ ] Clear draft after submit or reset.
-- [ ] Write tests verifying basic save, restore, and clear.
+## Active Tasks (Phase C)
+- [ ] Add keyboard hotkeys (e.g., Space to Play/Pause, Left/Right arrow keys to scrub in 5-second increments).
+- [ ] Add visual "Burst Insights" overlays during playback showing average typing speed, confidence levels, or pauses.
