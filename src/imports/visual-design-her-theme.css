@@ -1,0 +1,48 @@
+Visual design overhaul. Make this feel like the movie "Her" — warm, intimate, human. The interfaces in Her succeed because they feel handmade and warm, not techy. Apply that principle everywhere.
+
+DO NOT change any functionality, routing, typing mechanics, burst detection, or signal processing. This is purely visual/CSS.
+
+Color palette shift:
+Background: move from #FAF6F1 to a warmer #F5EDE4 — more like aged paper, less like a blank webpage
+Primary text: keep #2C2824 (warm near-black)
+Secondary text: shift from #8B7E74 to #A0897A — warmer, more terracotta
+Accent color: introduce a muted warm coral #C4724E — use VERY sparingly (only on the cursor, and perhaps the "Finish Letter" button). One accent, not everywhere.
+Card backgrounds: rgba(255, 250, 243, 0.85) — warmer, more paper-like
+
+Writing surface redesign:
+Center the text vertically on the page (use flexbox justify-center), not pinned to the top. The text should float in the middle like a sheet of paper held in front of you. As content grows, it naturally pushes downward.
+Increase max-width to 42rem and reduce font size to clamp(1rem, 2vw, 1.35rem) — feels more like a real letter, less like a billboard.
+The cursor should be the warm coral accent color (#C4724E) instead of black. Make it 2px wide, with a softer blink animation (ease-in-out opacity, not step-end).
+Placeholder text color: #C4B5A6 — warmer and slightly more visible.
+Remove the paper noise SVG texture overlay. Replace with a single very subtle CSS radial gradient: radial-gradient(ellipse at 50% 40%, rgba(196, 114, 78, 0.04) 0%, transparent 70%) — this gives a barely-perceptible warm glow in the center where you're typing, like lamplight on paper.
+
+Letter/Preview view:
+The card holding the finished letter: remove the rounded corners (rounded-2xl → rounded-none). Straight edges feel more like a real piece of paper. Add a very subtle warm shadow: box-shadow: 0 4px 40px rgba(139, 100, 70, 0.08).
+Add a subtle top-border accent: a thin 2px line in the coral color at the top of the card, like the edge of a beautiful envelope.
+"your letter is complete, an artifact of thought" — change to "a letter only you could have written"
+
+Replay view:
+Make the background darker and warmer: #2A2420 (dark warm brown, almost black). Text appears as warm light against darkness — like reading by lamplight.
+The progress bar: use the coral accent color for the filled portion.
+Cursor during replay: coral color, with a softer breathing animation during pauses (use ease-in-out not linear).
+"watch the letter unfold..." intro text: lighter, warmer — #B8A99A against the dark background.
+"the letter, as it was felt" completion text — change to "written by hand, felt by heart"
+The replay should feel like a different room — the dark background is the key differentiator from the light writing surface. It's intimate, like watching someone's thoughts in dim light.
+
+Landing page:
+Headline stays: "your words reveal what your fingers felt"
+Subtitle: change to "a letter that proves you were here. not generated. not autocompleted. yours."
+The demo card: add the same 2px coral top-border accent.
+Footer: change "every keystroke leaves an impression" to "the letter only a human could write"
+CTA button: change background to the coral #C4724E instead of dark brown. White text. This should be the warmest, most inviting element on the page.
+
+Typography refinements:
+All UI text (buttons, hints, labels): use font-variation-settings: "'wght' 400" — no bold UI elements. The only bold text should be confident typing bursts inside the letter itself. Everything else is quiet and light.
+Button text: tracking-wide (keep), but reduce font size slightly for a more refined feel.
+
+What NOT to do:
+No gradients on buttons
+No blur/glassmorphism effects
+No border-radius larger than 8px on anything (the demo card can keep rounded-xl max)
+No drop shadows darker than 8% opacity
+Do not touch any JavaScript logic, state management, or typing mechanics
